@@ -1,0 +1,40 @@
+input {
+	tcp {
+		port => 5001
+		type => "syslog"
+		codec => multiline {
+			pattern => "(^%{SYSLOG5424PRI}%{NONNEGINT} +(?:%{TIMESTAMP_ISO8601}|-) +(?:%{HOSTNAME:service}|-) +(?:%{NOTSPACE:containerName}|-) +(?:%{NOTSPACE:proc}|-) +(?:%{NOTSPACE}|-) %{TIMESTAMP_ISO8601:timestamp})"
+			negate => true
+			what => "previous"
+		}
+	}
+}
+
+## Add your filters / logstash plugins configuration here
+
+filter {
+	if [type] == "syslog" {
+		grok {
+		  match => { "message" => "%{SYSLOG5424PRI}%{NONNEGINT} +(?:%{TIMESTAMP_ISO8601}|-) +(?:%{HOSTNAME:service}|-) +(?:%{NOTSPACE:containerName}|-) +(?:%{NOTSPACE:proc}|-) +(?:%{NOTSPACE}|-) %{TIMESTAMP_ISO8601:timestamp}\s+%{LOGLEVEL:severity}\s+%{NONNEGINT:pid}\s+---\s+\[%{DATA:thread}\]\s+%{DATA:class}\s+:\s+%{GREEDYDATA:msg}" }
+		  
+		  
+		}
+		
+		mutate {
+		  gsub => [ "msg", "\\n%{SYSLOG5424PRI}%{NONNEGINT} +(?:%{TIMESTAMP_ISO8601}|-) +(?:%{HOSTNAME:service}|-) +(?:%{NOTSPACE:containerName}|-) +(?:%{NOTSPACE:proc}|-) +(?:%{NOTSPACE}|-) %{TIMESTAMP_ISO8601:timestamp}", "\\n"]
+		}
+		
+		mutate {
+		  remove_field => ["message"] 
+		}
+	}
+}
+
+
+output {
+	if [type] == "syslog" {
+		elasticsearch {
+			hosts => "elasticsearch:9200"
+		}
+	}
+}

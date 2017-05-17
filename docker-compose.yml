@@ -4,11 +4,16 @@ services:
 
   elasticsearch:
     build: elasticsearch/
+    container_name: es1
+    volumes:
+      - /c/Wenhui/elasticsearch-data/es1:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
+      - "7070:7070"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+#      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      ES_JAVA_OPTS: "-Xmx128m -Xms128m -XX:MaxMetaspaceSize=96m -Dcom.sun.management.jmxremote.port=7070 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7070 -Djava.rmi.server.hostname=127.0.0.1"
       # disable X-Pack
       # see https://www.elastic.co/guide/en/x-pack/current/xpack-settings.html
       #     https://www.elastic.co/guide/en/x-pack/current/installing-xpack.html#xpack-enabling
@@ -16,6 +21,8 @@ services:
       xpack.monitoring.enabled: "false"
       xpack.graph.enabled: "false"
       xpack.watcher.enabled: "false"
+      LOGSPOUT: "ignore"
+    mem_limit: 224m
     networks:
       - elk
 
@@ -26,8 +33,12 @@ services:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     ports:
       - "5000:5000"
+      - "7071:7071"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      #LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      LS_JAVA_OPTS: "-Xmx128m -Xms128m -XX:MaxMetaspaceSize=96m -Dcom.sun.management.jmxremote.port=7071 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7071 -Djava.rmi.server.hostname=127.0.0.1"
+      LOGSPOUT : "ignore"
+    mem_limit: 224m
     networks:
       - elk
     depends_on:
@@ -39,11 +50,23 @@ services:
       - ./kibana/config/:/usr/share/kibana/config
     ports:
       - "5601:5601"
+    environment:
+      LOGSPOUT : "ignore"
     networks:
       - elk
     depends_on:
       - elasticsearch
-
+      
+  logspout:
+    image: gliderlabs/logspout
+    command: "raw://logstash:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - logstash
+    networks:
+      - elk
+      
 networks:
 
   elk:
